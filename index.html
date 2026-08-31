@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مركز تقنية المعلومات</title>
+    <!-- Bootstrap 5 RTL CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Firebase SDKs (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f0f2f5; overflow-x: hidden; }
+        #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #1a237e 0%, #0d47a1 100%); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+        .login-box { background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); width: 100%; max-width: 400px; text-align: center; }
+        .sidebar { height: 100vh; width: 260px; position: fixed; right: 0; background: #1a237e; color: white; padding-top: 20px; z-index: 1000; transition: 0.3s; }
+        .sidebar-brand { font-size: 1.3rem; font-weight: bold; text-align: center; margin-bottom: 20px; display: block; color: #fff; text-decoration: none; }
+        .nav-link { color: rgba(255, 255, 255, 0.8); padding: 12px 20px; margin: 5px 15px; border-radius: 8px; cursor: pointer; }
+        .nav-link:hover, .nav-link.active { background-color: rgba(255, 255, 255, 0.2); color: white; transform: translateX(-5px); }
+        .nav-link i { margin-left: 10px; width: 20px; text-align: center; }
+        .main-content { margin-right: 260px; padding: 30px; display: none; }
+        .topbar { background: #fff; padding: 15px 25px; border-radius: 12px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .card { border: none; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .card-header { border-radius: 12px 12px 0 0 !important; font-weight: bold; }
+        .app-section { display: none; animation: fadeIn 0.4s ease; }
+        .app-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <!-- شاشة تسجيل الدخول -->
+    <div id="login-screen">
+        <div class="login-box">
+            <h3 class="mb-4 text-primary"><i class="fa-solid fa-network-wired"></i> مركز تقنية المعلومات</h3>
+            <form id="loginForm">
+                <div class="mb-3 text-start">
+                    <label class="fw-bold text-muted">اسم المستخدم</label>
+                    <input type="text" class="form-control" id="loginUser" placeholder="أدخل اسم المستخدم" required>
+                </div>
+                <div class="mb-3 text-start">
+                    <label class="fw-bold text-muted">كلمة المرور</label>
+                    <input type="password" class="form-control" id="loginPass" placeholder="أدخل كلمة المرور" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 mb-3 fw-bold"><i class="fa-solid fa-right-to-bracket"></i> تسجيل الدخول</button>
+                <div class="text-center my-2 text-muted">أو</div>
+                <button type="button" class="btn btn-outline-secondary w-100" onclick="loginAsGuest()"><i class="fa-solid fa-user-guest"></i> الدخول كضيف (لرفع بلاغ فقط)</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- القائمة الجانبية -->
+    <div class="sidebar" id="sidebar" style="display: none;">
+        <a href="#" class="sidebar-brand"><i class="fa-solid fa-building-shield"></i> مركز تقنية المعلومات</a>
+        <div class="text-center mb-3">
+            <span class="badge bg-warning text-dark px-3 py-2 rounded-pill" id="currentUserBadge">مرحباً</span>
+        </div>
+        <ul class="nav flex-column">
+            <li class="nav-item nav-admin nav-it" id="nav-dashboard"><a class="nav-link active" onclick="switchView('dashboard')"><i class="fa-solid fa-chart-pie"></i> الإحصائيات</a></li>
+            <li class="nav-item nav-admin" id="nav-schedule"><a class="nav-link" onclick="switchView('schedule')"><i class="fa-solid fa-calendar-plus"></i> جدولة مهمة</a></li>
+            <li class="nav-item nav-admin nav-it" id="nav-tasks"><a class="nav-link" onclick="switchView('tasks')"><i class="fa-solid fa-list-check"></i> المهام والبلاغات</a></li>
+            <li class="nav-item nav-admin" id="nav-reports-period"><a class="nav-link" onclick="switchView('reports-period')"><i class="fa-solid fa-file-lines"></i> التقارير الفترية</a></li>
+            <li class="nav-item nav-all" id="nav-report"><a class="nav-link" onclick="switchView('report')"><i class="fa-solid fa-triangle-exclamation"></i> رفع بلاغ صيانة</a></li>
+            <li class="nav-item nav-admin" id="nav-users"><a class="nav-link" onclick="switchView('users')"><i class="fa-solid fa-users-gear"></i> إدارة المستخدمين</a></li>
+            <li class="nav-item nav-all mt-4"><a class="nav-link text-danger" onclick="logout()"><i class="fa-solid fa-power-off"></i> تسجيل الخروج</a></li>
+        </ul>
+    </div>
+
+    <!-- المحتوى الرئيسي -->
+    <div class="main-content" id="main-content">
+        <div class="topbar">
+            <h4 class="mb-0 text-primary fw-bold" id="pageTitle">الشاشة الرئيسية</h4>
+            <div id="currentDate" class="text-muted fw-bold bg-light px-3 py-1 rounded"></div>
+        </div>
+
+        <!-- الإحصائيات -->
+        <div id="dashboard" class="app-section">
+            <div class="row text-center">
+                <div class="col-md-4 mb-3"><div class="card bg-primary text-white h-100 shadow"><div class="card-body"><h5>إجمالي المهام</h5><h1 id="stat-total" class="display-5 fw-bold mt-2">0</h1></div></div></div>
+                <div class="col-md-4 mb-3"><div class="card bg-success text-white h-100 shadow"><div class="card-body"><h5>مكتملة</h5><h1 id="stat-completed" class="display-5 fw-bold mt-2">0</h1></div></div></div>
+                <div class="col-md-4 mb-3"><div class="card bg-warning text-dark h-100 shadow"><div class="card-body"><h5>قيد الانتظار</h5><h1 id="stat-pending" class="display-5 fw-bold mt-2">0</h1></div></div></div>
+            </div>
+            <div class="row text-center">
+                <div class="col-md-4 mb-3"><div class="card bg-danger text-white h-100 shadow"><div class="card-body"><h5>عالية (توقف كامل / خطيرة)</h5><h1 id="stat-high" class="display-5 fw-bold mt-2">0</h1></div></div></div>
+                <div class="col-md-4 mb-3"><div class="card bg-info text-dark h-100 shadow"><div class="card-body"><h5>متوسطة</h5><h1 id="stat-med" class="display-5 fw-bold mt-2">0</h1></div></div></div>
+                <div class="col-md-4 mb-3"><div class="card bg-secondary text-white h-100 shadow"><div class="card-body"><h5>منخفضة (لا تؤثر على سير العمل)</h5><h1 id="stat-low" class="display-5 fw-bold mt-2">0</h1></div></div></div>
+            </div>
+        </div>
+
+        <!-- رفع بلاغ -->
+        <div id="report" class="app-section">
+            <div class="card border-warning shadow-sm">
+                <div class="card-header bg-warning text-dark"><i class="fa-solid fa-triangle-exclamation"></i> رفع طلب صيانة (الضيوف والمستخدمين)</div>
+                <div class="card-body">
+                    <form id="reportForm">
+                        <div class="row mb-3">
+                            <div class="col-md-4"><label class="form-label">المبنى</label><input type="text" class="form-control" id="rep-building" placeholder="مثال: مبنى الإدارة" required></div>
+                            <div class="col-md-4"><label class="form-label">الغرفة</label><input type="text" class="form-control" id="rep-room" placeholder="مثال: 105" required></div>
+                            <div class="col-md-4"><label class="form-label">اسم/رقم الجهاز</label><input type="text" class="form-control" id="rep-device" placeholder="مثال: PC-01" required></div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6"><label class="form-label">تاريخ المشكلة</label><input type="date" class="form-control" id="rep-date" required></div>
+                            <div class="col-md-6">
+                                <label class="form-label">مستوى الأولوية</label>
+                                <select class="form-select" id="rep-priority">
+                                    <option value="عالية">عالية (توقف كامل للعمل / حالة خطيرة)</option>
+                                    <option value="متوسطة">متوسطة</option>
+                                    <option value="منخفضة">منخفضة (لا تؤدي إلى خلل سير العمل)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3"><label class="form-label">وصف المشكلة</label><textarea class="form-control" id="rep-problem" rows="3" placeholder="اشرح المشكلة بالتفصيل..." required></textarea></div>
+                        <button type="submit" class="btn btn-warning w-100 fw-bold shadow-sm"><i class="fa-solid fa-paper-plane"></i> إرسال البلاغ لمركز تقنية المعلومات</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- الجدولة -->
+        <div id="schedule" class="app-section">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white"><i class="fa-solid fa-calendar-plus"></i> جدولة مهمة لفريق المركز</div>
+                <div class="card-body">
+                    <form id="scheduleForm">
+                        <div class="row mb-3">
+                            <div class="col-md-8"><label class="form-label">عنوان المهمة</label><input type="text" class="form-control" id="sch-title" placeholder="مثال: صيانة شبكة المعمل" required></div>
+                            <div class="col-md-4"><label class="form-label">التاريخ المجدول</label><input type="date" class="form-control" id="sch-date" required></div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6"><label class="form-label">الموقع (مبنى/غرفة/جهاز)</label><input type="text" class="form-control" id="sch-location" placeholder="مثال: مبنى 1 - غرفة 10 - راوتر" required></div>
+                            <div class="col-md-6">
+                                <label class="form-label">الأولوية</label>
+                                <select class="form-select" id="sch-priority">
+                                    <option value="عالية">عالية</option>
+                                    <option value="متوسطة" selected>متوسطة</option>
+                                    <option value="منخفضة">منخفضة</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3"><label class="form-label">التفاصيل والمطلوب</label><textarea class="form-control" id="sch-desc" rows="3" placeholder="ما هو المطلوب إنجازه؟" required></textarea></div>
+                        <button type="submit" class="btn btn-primary fw-bold px-4"><i class="fa-solid fa-check"></i> اعتماد الجدولة</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- المهام -->
+        <div id="tasks" class="app-section">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white text-primary border-bottom"><i class="fa-solid fa-list-check"></i> سجل المهام والبلاغات</div>
+                <div class="card-body table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>رقم الشكوى</th>
+                                <th>التاريخ</th>
+                                <th>المصدر</th>
+                                <th>الأولوية</th>
+                                <th>العنوان / المشكلة</th>
+                                <th>الموقع</th>
+                                <th>الحالة</th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tasksTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- التقارير الفترية -->
+        <div id="reports-period" class="app-section">
+            <div class="card shadow-sm mb-4 border-info">
+                <div class="card-header bg-info text-dark"><i class="fa-solid fa-filter"></i> استخراج تقرير حسب الفترة الزمنية</div>
+                <div class="card-body">
+                    <div class="row align-items-end">
+                        <div class="col-md-4 mb-3"><label class="form-label fw-bold">من تاريخ</label><input type="date" class="form-control" id="rep-from-date"></div>
+                        <div class="col-md-4 mb-3"><label class="form-label fw-bold">إلى تاريخ</label><input type="date" class="form-control" id="rep-to-date"></div>
+                        <div class="col-md-4 mb-3"><button class="btn btn-info w-100 fw-bold text-dark" onclick="generatePeriodReport()"><i class="fa-solid fa-search"></i> استعراض التقرير</button></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm" id="periodResultCard" style="display: none;">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <span><i class="fa-solid fa-file-invoice"></i> نتيجة التقرير الفتري</span>
+                    <span class="badge bg-light text-dark" id="periodCountBadge">0 مهمة</span>
+                </div>
+                <div class="card-body table-responsive">
+                    <table class="table table-bordered align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>رقم</th>
+                                <th>التاريخ</th>
+                                <th>النوع</th>
+                                <th>الأولوية</th>
+                                <th>العنوان</th>
+                                <th>الحالة</th>
+                                <th>تفاصيل الحل</th>
+                            </tr>
+                        </thead>
+                        <tbody id="periodTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- إدارة المستخدمين -->
+        <div id="users" class="app-section">
+            <div class="card shadow-sm mb-4 border-primary">
+                <div class="card-header bg-primary text-white"><i class="fa-solid fa-user-plus"></i> إضافة حساب جديد</div>
+                <div class="card-body">
+                    <form id="addUserForm">
+                        <div class="row align-items-end">
+                            <div class="col-md-4 mb-3"><label class="form-label text-muted fw-bold">اسم المستخدم</label><input type="text" class="form-control" id="new-username" required></div>
+                            <div class="col-md-3 mb-3"><label class="form-label text-muted fw-bold">كلمة المرور</label><input type="text" class="form-control" id="new-password" required></div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label text-muted fw-bold">الصلاحية</label>
+                                <select class="form-select" id="new-role">
+                                    <option value="it">فريق المركز (IT)</option>
+                                    <option value="admin">مدير نظام (Admin)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2 mb-3"><button type="submit" class="btn btn-primary w-100 fw-bold"><i class="fa-solid fa-plus"></i> إضافة</button></div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white"><i class="fa-solid fa-users-gear"></i> إدارة الحسابات الحالية</div>
+                <div class="card-body table-responsive">
+                    <table class="table table-hover align-middle text-center">
+                        <thead class="table-light"><tr><th>اسم المستخدم</th><th>كلمة المرور</th><th>الصلاحية</th><th>إجراءات</th></tr></thead>
+                        <tbody id="usersTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- نافذة إنجاز المهمة -->
+    <div class="modal fade" id="completeModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fa-solid fa-clipboard-check"></i> تقرير إنجاز المهمة</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="completeForm">
+                        <input type="hidden" id="comp-task-id">
+                        <div class="mb-3"><label class="form-label">السبب الفعلي للمشكلة</label><textarea class="form-control" id="comp-cause" rows="2" required></textarea></div>
+                        <div class="mb-3"><label class="form-label">خطوات الحل التي تمت</label><textarea class="form-control" id="comp-solution" rows="2" required></textarea></div>
+                        <div class="row mb-3">
+                            <div class="col-md-4"><label class="form-label">عدد الأعضاء</label><input type="number" class="form-control" id="comp-count" min="1" required></div>
+                            <div class="col-md-8"><label class="form-label">أسماء المنفذين</label><input type="text" class="form-control" id="comp-names" placeholder="أحمد، محمد..." required></div>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100 fw-bold"><i class="fa-solid fa-check-double"></i> حفظ الإنجاز وإغلاق المهمة</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // إعدادات Firebase الخاصة بمشروعك (test-mode-c1433)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBrC6zPp8h8sFwvPIJWmkOwh17YxHqJygM",
+            authDomain: "test-mode-c1433.firebaseapp.com",
+            databaseURL: "https://test-mode-c1433-default-rtdb.firebaseio.com",
+            projectId: "test-mode-c1433",
+            storageBucket: "test-mode-c1433.firebasestorage.app",
+            messagingSenderId: "985666812166",
+            appId: "1:985666812166:web:112fd31fbfdb002ee38687",
+            measurementId: "G-CWHEBXHMM5"
+        };
+
+        // تهيئة فايربيس
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let usersDB = [{ user: 'admin', pass: '123', role: 'admin' }];
+        let tickets = [];
+        let activeUser = null;
+
+        document.getElementById('currentDate').innerText = "تاريخ اليوم: " + new Date().toLocaleDateString('ar-SA');
+        document.getElementById('rep-date').valueAsDate = new Date();
+        document.getElementById('sch-date').valueAsDate = new Date();
+        document.getElementById('rep-from-date').valueAsDate = new Date();
+        document.getElementById('rep-to-date').valueAsDate = new Date();
+
+        // مزامنة البيانات لحظياً من قاعدة البيانات السحابية
+        db.ref('it_users').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                usersDB = Object.values(data);
+            } else {
+                db.ref('it_users').set([{ user: 'admin', pass: '123', role: 'admin' }]);
+            }
+            if (activeUser && document.getElementById('users').classList.contains('active')) {
+                renderUsers();
+            }
+        });
+
+        db.ref('it_tickets').on('value', (snapshot) => {
+            const data = snapshot.val();
+            tickets = data ? Object.values(data) : [];
+            renderData();
+        });
+
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const u = document.getElementById('loginUser').value.trim();
+            const p = document.getElementById('loginPass').value.trim();
+            const found = usersDB.find(x => x.user === u && x.pass === p);
+            if(found) { loginSuccess(found); }
+            else { alert('بيانات الدخول خاطئة!'); }
+        });
+
+        function loginAsGuest() { loginSuccess({ user: 'ضيف (مستخدم)', role: 'guest' }); }
+
+        function loginSuccess(userData) {
+            activeUser = userData;
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('sidebar').style.display = 'block';
+            document.getElementById('main-content').style.display = 'block';
+            let roleName = userData.role === 'admin' ? 'مدير نظام' : (userData.role === 'it' ? 'فريق المركز' : 'ضيف');
+            document.getElementById('currentUserBadge').innerText = `${userData.user} | ${roleName}`;
+            applyPermissions();
+        }
+
+        function logout() { location.reload(); }
+
+        function applyPermissions() {
+            document.querySelectorAll('.nav-item').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.nav-all').forEach(el => el.style.display = 'block');
+            if (activeUser.role === 'admin') {
+                document.querySelectorAll('.nav-admin').forEach(el => el.style.display = 'block');
+                switchView('dashboard');
+                renderUsers();
+            } else if (activeUser.role === 'it') {
+                document.querySelectorAll('.nav-it').forEach(el => el.style.display = 'block');
+                switchView('dashboard');
+            } else {
+                switchView('report');
+                document.getElementById('sidebar').style.display = 'none'; 
+                document.getElementById('main-content').style.marginRight = '0'; 
+            }
+            renderData();
+        }
+
+        function switchView(viewId) {
+            document.querySelectorAll('.app-section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            let navItem = document.querySelector(`#nav-${viewId} a`);
+            if(navItem) navItem.classList.add('active');
+            const titles = { 'dashboard': 'الإحصائيات العامة', 'schedule': 'جدولة مهام المركز', 'tasks': 'سجل المهام والبلاغات', 'reports-period': 'التقارير الفترية للمهام', 'report': 'رفع بلاغ صيانة', 'users': 'إدارة حسابات المستخدمين' };
+            document.getElementById('pageTitle').innerText = titles[viewId];
+        }
+
+        document.getElementById('addUserForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const u = document.getElementById('new-username').value.trim();
+            const p = document.getElementById('new-password').value.trim();
+            const r = document.getElementById('new-role').value;
+            if(usersDB.find(x => x.user === u)) { alert('اسم المستخدم موجود مسبقاً!'); return; }
+            usersDB.push({ user: u, pass: p, role: r });
+            db.ref('it_users').set(usersDB);
+            document.getElementById('addUserForm').reset();
+            alert('تم إضافة الحساب بنجاح!');
+        });
+
+        function renderUsers() {
+            const tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = '';
+            usersDB.forEach((u, i) => {
+                let badgeClass = u.role === 'admin' ? 'danger' : 'primary';
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${u.user}</strong></td>
+                        <td><span class="text-muted border px-2 py-1 rounded bg-light">${u.pass}</span></td>
+                        <td><span class="badge bg-${badgeClass}">${u.role === 'admin' ? 'مدير نظام' : 'فريق المركز'}</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary m-1" onclick="editUser(${i})">تعديل الرمز</button>
+                            <button class="btn btn-sm btn-outline-danger m-1" onclick="deleteUser(${i})">حذف</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function editUser(index) {
+            let u = usersDB[index];
+            let newPass = prompt(`أدخل كلمة المرور الجديدة لـ (${u.user}):`, u.pass);
+            if (newPass !== null && newPass.trim() !== "") {
+                usersDB[index].pass = newPass;
+                db.ref('it_users').set(usersDB);
+                alert('تم التعديل!');
+            }
+        }
+
+        function deleteUser(index) {
+            let u = usersDB[index];
+            if (u.user === activeUser.user) { alert('لا يمكنك حذف حسابك الشخصي حالياً!'); return; }
+            if(confirm(`حذف الحساب (${u.user})؟`)) {
+                usersDB.splice(index, 1);
+                db.ref('it_users').set(usersDB);
+            }
+        }
+
+        document.getElementById('reportForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const location = `مبنى ${document.getElementById('rep-building').value} - غرفة ${document.getElementById('rep-room').value} - جهاز ${document.getElementById('rep-device').value}`;
+            tickets.push({
+                id: Date.now(), type: 'بلاغ من مستخدم', source: activeUser.user,
+                title: document.getElementById('rep-problem').value.substring(0,30) + '...',
+                problem: document.getElementById('rep-problem').value, location: location,
+                date: document.getElementById('rep-date').value, priority: document.getElementById('rep-priority').value,
+                status: 'قيد الانتظار', report: null
+            });
+            saveData(); document.getElementById('reportForm').reset();
+            alert('تم رفع البلاغ بنجاح!');
+        });
+
+        document.getElementById('scheduleForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            tickets.push({
+                id: Date.now(), type: 'مهمة مجدولة', source: activeUser.user,
+                title: document.getElementById('sch-title').value, problem: document.getElementById('sch-desc').value,
+                location: document.getElementById('sch-location').value, date: document.getElementById('sch-date').value,
+                priority: document.getElementById('sch-priority').value, status: 'مجدولة', report: null
+            });
+            saveData(); document.getElementById('scheduleForm').reset();
+            alert('تم اعتماد الجدولة!'); switchView('tasks');
+        });
+
+        function renderData() {
+            const tbody = document.getElementById('tasksTableBody');
+            tbody.innerHTML = '';
+            let comp = 0, pend = 0, high = 0, med = 0, low = 0;
+
+            let sortedTickets = [...tickets].sort((a, b) => {
+                const pVals = { 'عالية': 3, 'متوسطة': 2, 'منخفضة': 1 };
+                if (a.status !== b.status) return (a.status === 'مكتملة' || a.status === 'منجزة') ? 1 : -1;
+                return pVals[b.priority] - pVals[a.priority];
+            });
+
+            sortedTickets.forEach((t, index) => {
+                if (t.status === 'مكتملة' || t.status === 'منجزة') comp++; 
+                else pend++;
+                
+                if (t.priority === 'عالية') high++;
+                else if (t.priority === 'متوسطة') med++;
+                else if (t.priority === 'منخفضة') low++;
+
+                const pColor = t.priority === 'عالية' ? 'danger' : (t.priority === 'متوسطة' ? 'warning text-dark' : 'info text-dark');
+                const typeColor = t.type === 'مهمة مجدولة' ? 'dark' : 'secondary';
+                
+                let sBadge = '';
+                if(t.status === 'مكتملة' || t.status === 'منجزة') sBadge = `<span class="badge bg-success">مكتملة</span>`;
+                else if(t.status === 'مجدولة') sBadge = `<span class="badge bg-primary">مجدولة</span>`;
+                else sBadge = `<span class="badge bg-warning text-dark">قيد الانتظار</span>`;
+                
+                let actions = '';
+                if (t.status !== 'مكتملة' && t.status !== 'منجزة' && (activeUser.role === 'admin' || activeUser.role === 'it')) {
+                    actions += `<button class="btn btn-sm btn-success m-1 fw-bold" onclick="openCompleteModal(${t.id})">إنجاز</button>`;
+                }
+                if ((t.status === 'مكتملة' || t.status === 'منجزة') && (activeUser.role === 'admin' || activeUser.role === 'it')) {
+                    actions += `<button class="btn btn-sm btn-outline-success m-1" onclick="viewReport(${t.id})">التقرير</button>`;
+                }
+                if (activeUser.role === 'admin') {
+                    actions += `<button class="btn btn-sm btn-outline-danger m-1" onclick="deleteTask(${t.id})"><i class="fa-solid fa-trash"></i></button>`;
+                }
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>#${index + 1}</strong></td>
+                        <td class="text-nowrap">${t.date}</td>
+                        <td><span class="badge bg-${typeColor}">${t.type}</span></td>
+                        <td><span class="badge bg-${pColor}">${t.priority}</span></td>
+                        <td><strong>${t.title}</strong><br><small class="text-muted">${t.problem}</small></td>
+                        <td>${t.location}</td>
+                        <td>${sBadge}</td>
+                        <td>${actions}</td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('stat-total').innerText = tickets.length;
+            document.getElementById('stat-completed').innerText = comp;
+            document.getElementById('stat-pending').innerText = pend;
+            document.getElementById('stat-high').innerText = high;
+            document.getElementById('stat-med').innerText = med;
+            document.getElementById('stat-low').innerText = low;
+        }
+
+        function generatePeriodReport() {
+            const from = document.getElementById('rep-from-date').value;
+            const to = document.getElementById('rep-to-date').value;
+            if(!from || !to) { alert('الرجاء تحديد تاريخ البداية والنهاية'); return; }
+
+            const filtered = tickets.filter(t => t.date >= from && t.date <= to);
+            const tbody = document.getElementById('periodTableBody');
+            tbody.innerHTML = '';
+
+            filtered.forEach((t, index) => {
+                let solutionText = t.report ? `السبب: ${t.report.cause} <br> الحل: ${t.report.solution}` : 'لم تُغلق بعد';
+                tbody.innerHTML += `
+                    <tr>
+                        <td>#${index + 1}</td>
+                        <td>${t.date}</td>
+                        <td>${t.type}</td>
+                        <td>${t.priority}</td>
+                        <td><strong>${t.title}</strong></td>
+                        <td>${t.status}</td>
+                        <td><small>${solutionText}</small></td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('periodCountBadge').innerText = filtered.length + ' مهمة';
+            document.getElementById('periodResultCard').style.display = 'block';
+        }
+
+        const completeModal = new bootstrap.Modal(document.getElementById('completeModal'));
+        function openCompleteModal(id) {
+            document.getElementById('comp-task-id').value = id;
+            document.getElementById('completeForm').reset();
+            completeModal.show();
+        }
+
+        document.getElementById('completeForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const id = parseInt(document.getElementById('comp-task-id').value);
+            let t = tickets.find(x => x.id === id);
+            t.status = 'مكتملة';
+            t.report = {
+                cause: document.getElementById('comp-cause').value,
+                solution: document.getElementById('comp-solution').value,
+                count: document.getElementById('comp-count').value,
+                names: document.getElementById('comp-names').value,
+                doneBy: activeUser.user
+            };
+            saveData(); completeModal.hide(); 
+        });
+
+        function viewReport(id) {
+            let t = tickets.find(x => x.id === id);
+            if(t && t.report) {
+                alert(`--- تقرير الإنجاز ---\n\nتم بواسطة: ${t.report.doneBy}\nالسبب: ${t.report.cause}\nالحل: ${t.report.solution}\nعدد الأعضاء: ${t.report.count}\nالأسماء: ${t.report.names}`);
+            }
+        }
+
+        function deleteTask(id) {
+            if(confirm('حذف هذا السجل نهائياً؟')) { 
+                tickets = tickets.filter(x => x.id !== id); 
+                saveData(); 
+            }
+        }
+
+        function saveData() { 
+            db.ref('it_tickets').set(tickets); 
+        }
+    </script>
+</body>
+</html>
